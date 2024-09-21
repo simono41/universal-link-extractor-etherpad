@@ -1,9 +1,14 @@
 package main
 
 import (
+    "flag"
     "fmt"
+    "log"
+    "os"
     "regexp"
     "time"
+    "io"
+
     "github.com/go-rod/rod"
     "github.com/schollz/progressbar/v3"
 )
@@ -11,23 +16,34 @@ import (
 var (
     visitedURLs = make(map[string]bool)
     allLinks    = make(map[string]bool)
-    maxDepth    = 3 // Hier können Sie die maximale Tiefe festlegen
-
-    // Neue Variablen für initiale URLs und Regex-Pattern
-    initialURLs     = []string{"https://pad.stratum0.org/p/dc"}
+    maxDepth    = 3
+    initialURLs = []string{"https://pad.stratum0.org/p/dc"}
     linkRegexPattern = `https://pad\.stratum0\.org/p/dc[^\s"']+`
+    debugMode   bool
+    logger      *log.Logger
 )
 
+func init() {
+    flag.BoolVar(&debugMode, "debug", false, "Enable debug mode")
+    flag.Parse()
+
+    if debugMode {
+        logger = log.New(os.Stdout, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
+    } else {
+        logger = log.New(io.Discard, "", 0)
+    }
+}
+
 func main() {
-    fmt.Println("Starte das Programm...")
     startTime := time.Now()
 
+    logger.Println("Starte das Programm...")
     browser := rod.New().MustConnect()
     defer browser.MustClose()
 
-    fmt.Printf("Initiale URLs: %v\n", initialURLs)
-    fmt.Printf("Link Regex Pattern: %s\n", linkRegexPattern)
-    fmt.Printf("Maximale Tiefe: %d\n", maxDepth)
+    logger.Printf("Initiale URLs: %v\n", initialURLs)
+    logger.Printf("Link Regex Pattern: %s\n", linkRegexPattern)
+    logger.Printf("Maximale Tiefe: %d\n", maxDepth)
 
     toVisit := make([]struct {
         url   string
@@ -76,15 +92,15 @@ func main() {
 }
 
 func extractLinksFromPage(browser *rod.Browser, url string, depth int) []string {
-    fmt.Printf("\nVerarbeite URL: %s (Tiefe: %d)\n", url, depth)
+    logger.Printf("\nVerarbeite URL: %s (Tiefe: %d)\n", url, depth)
 
     if depth > maxDepth {
-        fmt.Printf("Maximale Tiefe erreicht für URL: %s\n", url)
+        logger.Printf("Maximale Tiefe erreicht für URL: %s\n", url)
         return nil
     }
 
     if visitedURLs[url] {
-        fmt.Printf("URL bereits besucht: %s\n", url)
+        logger.Printf("URL bereits besucht: %s\n", url)
         return nil
     }
 
@@ -94,41 +110,37 @@ func extractLinksFromPage(browser *rod.Browser, url string, depth int) []string 
     defer page.MustClose()
     page.MustWaitLoad()
 
-    fmt.Printf("Seite geladen: %s\n", url)
-
-    bar := progressbar.Default(100)
+    logger.Printf("Seite geladen: %s\n", url)
 
     var newLinks []string
 
     mainLinks := extractLinks(page, url)
     newLinks = append(newLinks, mainLinks...)
-    bar.Add(50)
 
     iframeLinks := processNestedIframes(page, url)
     newLinks = append(newLinks, iframeLinks...)
-    bar.Add(50)
 
     return newLinks
 }
 
 func processNestedIframes(page *rod.Page, sourceURL string) []string {
-    fmt.Printf("Suche nach äußerem iFrame auf %s\n", sourceURL)
+    logger.Printf("Suche nach äußerem iFrame auf %s\n", sourceURL)
 
     outerIframeElement := page.MustElement("#editorcontainer > iframe:nth-child(1)")
     outerFrame := outerIframeElement.MustFrame()
     outerFrame.MustWaitLoad()
 
-    fmt.Printf("Äußeres iFrame geladen auf %s\n", sourceURL)
+    logger.Printf("Äußeres iFrame geladen auf %s\n", sourceURL)
 
     outerLinks := extractLinks(outerFrame, sourceURL+" (äußeres iFrame)")
 
-    fmt.Printf("Suche nach innerem iFrame auf %s\n", sourceURL)
+    logger.Printf("Suche nach innerem iFrame auf %s\n", sourceURL)
 
     innerIframeElement := outerFrame.MustElement("#outerdocbody > iframe:nth-child(1)")
     innerFrame := innerIframeElement.MustFrame()
     innerFrame.MustWaitLoad()
 
-    fmt.Printf("Inneres iFrame geladen auf %s\n", sourceURL)
+    logger.Printf("Inneres iFrame geladen auf %s\n", sourceURL)
 
     innerLinks := extractLinks(innerFrame, sourceURL+" (inneres iFrame)")
 
@@ -141,13 +153,13 @@ func extractLinks(page *rod.Page, sourceURL string) []string {
     re := regexp.MustCompile(linkRegexPattern)
     links := re.FindAllString(text, -1)
 
-    fmt.Printf("Gefundene Links auf %s: %d\n", sourceURL, len(links))
+    logger.Printf("Gefundene Links auf %s: %d\n", sourceURL, len(links))
 
     var newLinks []string
     for _, link := range links {
         if !allLinks[link] {
             allLinks[link] = true
-            fmt.Printf("Neuer Link gefunden: %s\n", link)
+            logger.Printf("Neuer Link gefunden: %s\n", link)
             newLinks = append(newLinks, link)
         }
     }
