@@ -1,18 +1,16 @@
-# iFrame Link Extractor
+# Pad Stratum0 Link Extractor
 
 ## Beschreibung
 
-Dieses Go-Programm verwendet die go-rod Bibliothek, um den Inhalt von verschachtelten iFrames auf einer Webseite zu extrahieren und alle darin enthaltenen HTTPS-Links zu identifizieren und auszugeben. Es ist besonders nützlich für Webseiten mit komplexen iFrame-Strukturen, bei denen der Zugriff auf den Inhalt tiefer verschachtelter iFrames erforderlich ist.
+Dieses Go-Programm ist ein spezialisierter Web Scraper, der entwickelt wurde, um Links von der Pad Stratum0 Plattform zu extrahieren. Es navigiert durch verschachtelte iFrames und sammelt alle URLs, die mit "https://pad.stratum0.org/p/dc" beginnen.
 
 ## Funktionen
 
-- Navigiert zu einer angegebenen URL
-- Wartet auf das Laden der Hauptseite
-- Findet und wechselt in den Kontext eines äußeren iFrames
-- Findet und wechselt in den Kontext eines inneren iFrames innerhalb des äußeren iFrames
-- Extrahiert den Textinhalt des inneren iFrames
-- Identifiziert alle HTTPS-Links im extrahierten Text
-- Gibt die gefundenen Links aus
+- Extrahiert Links von einer initialen URL und folgt diesen rekursiv bis zu einer konfigurierbaren maximalen Tiefe.
+- Navigiert durch verschachtelte iFrames, um versteckte Links zu finden.
+- Vermeidet doppelte Besuche von URLs.
+- Bietet detaillierte Konsolenausgaben über den Fortschritt des Scrapings.
+- Sammelt Statistiken über gefundene und besuchte Links.
 
 ## Voraussetzungen
 
@@ -25,8 +23,8 @@ Dieses Go-Programm verwendet die go-rod Bibliothek, um den Inhalt von verschacht
 
 2. Klonen Sie das Repository:
    ```
-   git clone https://github.com/yourusername/iframe-link-extractor.git
-   cd iframe-link-extractor
+   git clone https://github.com/yourusername/pad-stratum0-link-extractor.git
+   cd pad-stratum0-link-extractor
    ```
 
 3. Installieren Sie die erforderlichen Abhängigkeiten:
@@ -34,26 +32,43 @@ Dieses Go-Programm verwendet die go-rod Bibliothek, um den Inhalt von verschacht
    go mod tidy
    ```
 
+## Konfiguration
+
+Sie können die maximale Suchtiefe anpassen, indem Sie den Wert der `maxDepth` Variable am Anfang der `main.go` Datei ändern:
+
+```go
+maxDepth = 3 // Ändern Sie diesen Wert nach Bedarf
+```
+
 ## Verwendung
 
-1. Öffnen Sie die `main.go` Datei und passen Sie die URL und iFrame-Selektoren an Ihre Zielwebseite an.
-
-2. Führen Sie das Programm aus:
+1. Führen Sie das Programm aus:
    ```
    go run main.go
    ```
 
-3. Das Programm wird die gefundenen HTTPS-Links in der Konsole ausgeben.
+2. Das Programm wird mit der Extraktion von Links beginnen und den Fortschritt in der Konsole ausgeben.
+
+3. Nach Abschluss wird eine Liste aller gefundenen Links sowie Statistiken angezeigt.
+
+## Ausgabe
+
+Das Programm gibt folgende Informationen aus:
+
+- Fortschrittsmeldungen für jede verarbeitete URL
+- Informationen über gefundene und geladene iFrames
+- Eine Liste aller gefundenen einzigartigen Links
+- Statistiken über die Gesamtanzahl der gefundenen Links, besuchten URLs und die Gesamtlaufzeit
 
 ## Anpassung
 
-- Um auf spezifische Elemente innerhalb der iFrames zu warten, können Sie zusätzliche `MustElement().MustWaitVisible()` Aufrufe hinzufügen.
-- Der reguläre Ausdruck für die Link-Erkennung kann angepasst werden, um spezifischere URL-Muster zu erfassen.
+- Um andere Websites zu scrapen, passen Sie die initiale URL und den regulären Ausdruck für die Link-Erkennung an.
+- Für komplexere Scraping-Logik können Sie die `extractLinks` Funktion modifizieren.
 
 ## Fehlerbehebung
 
-- Wenn Sie Probleme mit Timeouts haben, erhöhen Sie die Wartezeiten mit `page.Timeout()` oder `MustElement().WaitVisible()`.
-- Bei Problemen mit dem Zugriff auf iFrames aufgrund von Sicherheitseinstellungen, erwägen Sie die Verwendung zusätzlicher Browser-Optionen wie im Kommentar im Code beschrieben.
+- Wenn Sie Probleme mit dem Laden von iFrames haben, überprüfen Sie die CSS-Selektoren in der `processNestedIframes` Funktion.
+- Bei Timeout-Problemen können Sie die `MustWaitLoad` Aufrufe anpassen oder zusätzliche Wartezeiten einbauen.
 
 ## Beitrag
 
@@ -62,15 +77,16 @@ Beiträge zum Projekt sind willkommen. Bitte öffnen Sie ein Issue oder einen Pu
 ## Lizenz
 
 [Fügen Sie hier Ihre gewählte Lizenz ein, z.B. MIT, GPL, etc.]
+
 ```
 
 Diese README.md bietet eine umfassende Übersicht über Ihr Projekt und enthält Abschnitte für:
 
-1. Eine kurze Beschreibung des Projekts
-2. Die Hauptfunktionen
-3. Voraussetzungen für die Nutzung
-4. Installationsanweisungen
-5. Verwendungshinweise
+1. Eine Beschreibung des Projekts und seiner Hauptfunktionen
+2. Installationsanweisungen
+3. Konfigurationsmöglichkeiten
+4. Verwendungshinweise
+5. Erklärung der Ausgabe
 6. Anpassungsmöglichkeiten
 7. Tipps zur Fehlerbehebung
 8. Informationen zum Beitragen zum Projekt
