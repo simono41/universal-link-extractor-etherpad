@@ -5,12 +5,17 @@ import (
     "regexp"
     "time"
     "github.com/go-rod/rod"
+    "github.com/schollz/progressbar/v3"
 )
 
 var (
     visitedURLs = make(map[string]bool)
     allLinks    = make(map[string]bool)
     maxDepth    = 3 // Hier können Sie die maximale Tiefe festlegen
+
+    // Neue Variablen für initiale URLs und Regex-Pattern
+    initialURLs     = []string{"https://pad.stratum0.org/p/dc"}
+    linkRegexPattern = `https://pad\.stratum0\.org/p/dc[^\s"']+`
 )
 
 func main() {
@@ -20,14 +25,24 @@ func main() {
     browser := rod.New().MustConnect()
     defer browser.MustClose()
 
-    initialURL := "https://pad.stratum0.org/p/dc"
-    fmt.Printf("Beginne mit der initialen URL: %s\n", initialURL)
+    fmt.Printf("Initiale URLs: %v\n", initialURLs)
+    fmt.Printf("Link Regex Pattern: %s\n", linkRegexPattern)
     fmt.Printf("Maximale Tiefe: %d\n", maxDepth)
 
-    toVisit := []struct {
+    toVisit := make([]struct {
         url   string
         depth int
-    }{{initialURL, 0}}
+    }, len(initialURLs))
+
+    for i, url := range initialURLs {
+        toVisit[i] = struct {
+            url   string
+            depth int
+        }{url, 0}
+    }
+
+    totalURLs := len(toVisit)
+    bar := progressbar.Default(int64(totalURLs))
 
     for len(toVisit) > 0 {
         current := toVisit[0]
@@ -41,8 +56,12 @@ func main() {
                     url   string
                     depth int
                 }{link, current.depth + 1})
+                totalURLs++
+                bar.ChangeMax(totalURLs)
             }
         }
+
+        bar.Add(1)
     }
 
     fmt.Println("\nAlle gefundenen Links:")
@@ -77,13 +96,17 @@ func extractLinksFromPage(browser *rod.Browser, url string, depth int) []string 
 
     fmt.Printf("Seite geladen: %s\n", url)
 
+    bar := progressbar.Default(100)
+
     var newLinks []string
 
-    // Verarbeite die Hauptseite
-    newLinks = append(newLinks, extractLinks(page, url)...)
+    mainLinks := extractLinks(page, url)
+    newLinks = append(newLinks, mainLinks...)
+    bar.Add(50)
 
-    // Verarbeite die verschachtelten iFrames
-    newLinks = append(newLinks, processNestedIframes(page, url)...)
+    iframeLinks := processNestedIframes(page, url)
+    newLinks = append(newLinks, iframeLinks...)
+    bar.Add(50)
 
     return newLinks
 }
@@ -91,32 +114,22 @@ func extractLinksFromPage(browser *rod.Browser, url string, depth int) []string 
 func processNestedIframes(page *rod.Page, sourceURL string) []string {
     fmt.Printf("Suche nach äußerem iFrame auf %s\n", sourceURL)
 
-    // Finden Sie das erste iFrame-Element
     outerIframeElement := page.MustElement("#editorcontainer > iframe:nth-child(1)")
-
-    // Wechseln Sie zum Kontext des ersten iFrames
     outerFrame := outerIframeElement.MustFrame()
-
-    // Warten Sie, bis der Inhalt des ersten iFrames geladen ist
     outerFrame.MustWaitLoad()
 
     fmt.Printf("Äußeres iFrame geladen auf %s\n", sourceURL)
 
-    // Extrahiere Links aus dem äußeren iFrame
     outerLinks := extractLinks(outerFrame, sourceURL+" (äußeres iFrame)")
 
     fmt.Printf("Suche nach innerem iFrame auf %s\n", sourceURL)
 
-    // Finden Sie das zweite iFrame-Element innerhalb des ersten iFrames
     innerIframeElement := outerFrame.MustElement("#outerdocbody > iframe:nth-child(1)")
-
-    // Wechseln Sie zum Kontext des zweiten iFrames
     innerFrame := innerIframeElement.MustFrame()
     innerFrame.MustWaitLoad()
 
     fmt.Printf("Inneres iFrame geladen auf %s\n", sourceURL)
 
-    // Extrahiere Links aus dem inneren iFrame
     innerLinks := extractLinks(innerFrame, sourceURL+" (inneres iFrame)")
 
     return append(outerLinks, innerLinks...)
@@ -125,7 +138,7 @@ func processNestedIframes(page *rod.Page, sourceURL string) []string {
 func extractLinks(page *rod.Page, sourceURL string) []string {
     text := page.MustElement("body").MustText()
 
-    re := regexp.MustCompile(`https://pad\.stratum0\.org/p/dc[^\s"']+`)
+    re := regexp.MustCompile(linkRegexPattern)
     links := re.FindAllString(text, -1)
 
     fmt.Printf("Gefundene Links auf %s: %d\n", sourceURL, len(links))
